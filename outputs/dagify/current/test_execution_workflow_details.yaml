@@ -1,6 +1,5 @@
-dag_type: plain_text
-description: A highly concurrent workflow to execute a comprehensive test suite across
-  multiple test categories with parallel execution of independent components
+dag_type: typed
+description: Generated workflow from UI.
 name: test_execution_workflow
 nodes:
   aggregate_test_results:
@@ -12,6 +11,19 @@ nodes:
     - execute_integration_tests
     - execute_e2e_tests
     nodes_dependent_on: []
+    output_structure:
+    - description: List of all test results
+      key: test_results
+      type: List[str]
+    - description: List of test failures with error messages
+      key: test_failures
+      type: List[str]
+    - description: Overall pass rate of all tests
+      key: pass_rate
+      type: float
+    - description: List of overlapping test failures
+      key: failure_overlaps
+      type: List[str]
     prompt: Combine pass/fail metrics from unit, integration, and end-to-end tests.
       Cross-reference failure logs to identify overlapping issues.
   archive_test_artifacts:
@@ -22,6 +34,16 @@ nodes:
     - generate_detailed_report
     - validate_test_coverage
     nodes_dependent_on: []
+    output_structure:
+    - description: Link to the archived test log file
+      key: test_log_file
+      type: str
+    - description: Link to the archived report file
+      key: report_file
+      type: str
+    - description: SHA hash code for the archived files
+      key: hash_code
+      type: str
     prompt: Package all test logs, reports, and environment configurations into a
       timestamped archive. Store in version-controlled repository with SHA hash tracking.
   execute_e2e_tests:
@@ -31,6 +53,19 @@ nodes:
     nodes_depended_on:
     - initialize_test_environment
     nodes_dependent_on: []
+    output_structure:
+    - description: End-to-end test success rate as a percentage
+      key: e2e_test_success_rate
+      type: float
+    - description: List of business transaction error rates
+      key: business_transaction_error_rates
+      type: List[float]
+    - description: Error logs for any exceptions encountered during E2E testing
+      key: exception_logs
+      type: str
+    - description: Recorded performance metrics for the E2E tests
+      key: performance_metrics
+      type: str
     prompt: Simulate full workflow scenarios through the entire system pipeline. Record
       business transaction success rates, exceptions, and performance metrics.
   execute_integration_tests:
@@ -40,6 +75,22 @@ nodes:
     nodes_depended_on:
     - initialize_test_environment
     nodes_dependent_on: []
+    output_structure:
+    - description: Results of the integration tests
+      key: integration_test_results
+      type: str
+    - description: Captured logs of inter-module failures
+      key: failure_logs
+      type: str
+    - description: Interface parameters for the integration tests
+      key: interface_parameters
+      type: str
+    - description: Percentage of passed integration tests
+      key: pass_rate
+      type: float
+    - description: List of failed test cases
+      key: failed_test_cases
+      type: List[str]
     prompt: Execute integration tests between core system components. Document inter-module
       failures with captured logs and interface parameters.
   execute_unit_tests:
@@ -49,6 +100,22 @@ nodes:
     nodes_depended_on:
     - initialize_test_environment
     nodes_dependent_on: []
+    output_structure:
+    - description: List of test results (pass/fail)
+      key: test_results
+      type: List[str]
+    - description: List of failure stack traces
+      key: failure_stack_traces
+      type: List[str]
+    - description: Total number of unit tests executed
+      key: test_count
+      type: int
+    - description: Number of unit tests passed
+      key: pass_count
+      type: int
+    - description: Number of unit tests failed
+      key: fail_count
+      type: int
     prompt: Execute all unit tests in isolation using the configured test framework.
       Report pass/fail results by module with failure stack traces if any.
   generate_detailed_report:
@@ -58,6 +125,22 @@ nodes:
     nodes_depended_on:
     - aggregate_test_results
     nodes_dependent_on: []
+    output_structure:
+    - description: Comprehensive summary of test outcomes
+      key: test_summary
+      type: str
+    - description: Pass rates by test category
+      key: pass_rates
+      type: List[float]
+    - description: ' Failure heatmaps for inter-test relationships'
+      key: failure_heatmaps
+      type: str
+    - description: Dependency graphs showing inter-test relationships
+      key: dependency_graphs
+      type: str
+    - description: Overall test coverage
+      key: overall_coverage
+      type: float
     prompt: Format test results into comprehensive HTML report with failure heatmaps,
       pass rates by category, and dependency graphs showing inter-test relationships.
   initialize_test_environment:
@@ -66,6 +149,23 @@ nodes:
     name: initialize_test_environment
     nodes_depended_on: []
     nodes_dependent_on: []
+    output_structure:
+    - description: List of configured test databases
+      key: configured_test_databases
+      type: str
+    - description: Whether the test cache has been cleared
+      key: cleared_cache
+      type: bool
+    - description: List of established sandbox environments
+      key: established_sandbox_environments
+      type: str
+    - description: Whether all dependencies are active and version requirements are
+        met
+      key: verified_dependencies
+      type: bool
+    - description: Whether the test environment is prepared for execution
+      key: test_environment_ready
+      type: bool
     prompt: 'Set up test environment requirements: configure test databases, clear
       cache, establish sandbox environments for all required systems. Confirm all
       dependencies are active and version requirements are met.'
@@ -77,6 +177,19 @@ nodes:
     - generate_detailed_report
     - validate_test_coverage
     nodes_dependent_on: []
+    output_structure:
+    - description: Formal acceptance recommendation based on defined quality thresholds
+      key: recommendation
+      type: str
+    - description: Combined test pass rate
+      key: pass_rate
+      type: float
+    - description: Whether the quality threshold has been exceeded
+      key: threshold_exceeded
+      type: bool
+    - description: Detailed validation results of the test execution
+      key: validation_results
+      type: str
     prompt: Review combined test report and coverage analysis. Generate formal acceptance
       recommendation based on defined quality thresholds (e.g., 95% unit test pass
       rate).
@@ -87,6 +200,19 @@ nodes:
     nodes_depended_on:
     - produce_final_validation
     nodes_dependent_on: []
+    output_structure:
+    - description: List of channels used to send alerts
+      key: alert_channels
+      type: List[str]
+    - description: Number of thresholds exceeded
+      key: threshold_exceeded_count
+      type: int
+    - description: Whether incident management workflows were triggered
+      key: incident_management_triggered
+      type: bool
+    - description: List of critical defects identified
+      key: critical_defects_identified
+      type: List[str]
     prompt: Send alerts via defined channels (email/SMS/PagerDuty) for test failures
       exceeding SLA thresholds. Trigger incident management workflows if critical
       defects are detected.
@@ -97,5 +223,18 @@ nodes:
     nodes_depended_on:
     - aggregate_test_results
     nodes_dependent_on: []
+    output_structure:
+    - description: List of untested requirements
+      key: untested_requirements
+      type: List[str]
+    - description: List of code gaps detected during test execution
+      key: code_gaps_detected
+      type: List[str]
+    - description: Risk assessment for untested requirements and code gaps
+      key: risk_assessment
+      type: str
+    - description: Percentage of test coverage
+      key: test_coverage_percentage
+      type: float
     prompt: Compare executed test cases against requirements baseline. Identify and
       document untested requirements or code gaps with risk assessment.
