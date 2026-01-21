@@ -1,4 +1,4 @@
-dag_type: typed
+dag_type: spec
 description: Generated workflow from UI.
 name: test_execution_workflow
 nodes:
@@ -25,33 +25,38 @@ nodes:
       key: failure_overlaps
       type: List[str]
     prd:
-      conceptual_info: An intermediate step aggregating outputs from various test
-        categories.
+      conceptual_info: This node consolidates test results from unit, integration,
+        and end-to-end tests, calculating the overall pass rate and identifying overlapping
+        test failures.
       docstring:
         examples:
         - lines:
-          - aggregate_test_results(unit_test_results=['pass', 'fail'], integration_test_results=['pass',
-            'fail'], e2e_test_results=['pass', 'fail'])
-          output: '{''test_results'': [''pass'', ''fail'', ''pass'', ''fail''], ''test_failures'':
-            [''fail'', ''fail''], ''pass_rate'': 0.75, ''failure_overlaps'': [''fail'']}'
+          - unit_test_results = ['pass', 'fail', 'pass']
+          - integration_test_results = 'pass'
+          - e2e_test_success_rate = 90.0
+          - aggregate_test_results(unit_test_results, integration_test_results, e2e_test_success_rate)
+          output: '{''test_results'': [''pass'', ''fail'', ''pass'', ''pass''], ''test_failures'':
+            [''fail''], ''pass_rate'': 0.75, ''failure_overlaps'': []}'
         parameters:
-        - description: Results from unit tests
+        - description: List of unit test results
           name: unit_test_results
           type: List[str]
-        - description: Results from integration tests
+        - description: Results of the integration tests
           name: integration_test_results
-          type: List[str]
-        - description: Results from end-to-end tests
-          name: e2e_test_results
-          type: List[str]
+          type: str
+        - description: End-to-end test success rate as a percentage
+          name: e2e_test_success_rate
+          type: float
         raises:
-        - description: If input test results are of incorrect type.
-          type: TypeError
+        - description: If any of the input test results are invalid or missing.
+          type: ValueError
         returns:
-          description: Dictionary of aggregated test results, failures, pass rates,
-            and overlapping failure logs.
-          type: Dict[str, List[str]]
-        summary: Aggregates test results from unit, integration, and end-to-end tests.
+          description: A dictionary containing the consolidated test results, including
+            the list of all test results, test failures, overall pass rate, and failure
+            overlaps.
+          type: dict
+        summary: Aggregate test results from multiple test categories, including unit,
+          integration, and end-to-end tests.
     prompt: Combine pass/fail metrics from unit, integration, and end-to-end tests.
       Cross-reference failure logs to identify overlapping issues.
   archive_test_artifacts:
@@ -73,41 +78,62 @@ nodes:
       key: hash_code
       type: str
     prd:
-      conceptual_info: The archive_test_artifacts node packages all test logs, reports,
-        and environment configurations into a timestamped archive and stores it in
-        a version-controlled repository with SHA hash tracking.
+      conceptual_info: This node is responsible for archiving test artifacts, including
+        logs and reports, to a version-controlled repository for auditing purposes.
       docstring:
         examples:
         - lines:
-          - 'input_artifacts = {''test_log'': ''test_log.txt'', ''report'': ''report.html''}'
-          - input_artifacts_hash = 'sha256_hash_code'
-          - archived_artifacts = archive_test_artifacts(input_artifacts, input_artifacts_hash)
-          - print(archived_artifacts['test_log_file'])
-          - print(archived_artifacts['report_file'])
-          - print(archived_artifacts['hash_code'])
-          output: 'test_log.txt
-
-            report.html
-
-            sha256_hash_code'
+          - archive_test_artifacts(test_summary='Test summary', untested_requirements=['req1',
+            'req2'], code_gaps_detected=['gap1', 'gap2'], risk_assessment='High',
+            test_coverage_percentage=80.0, pass_rates=[0.9, 0.8], failure_heatmaps='heatmaps',
+            dependency_graphs='graphs', overall_coverage=0.85)
+          output: '{''test_log_file'': ''https://example.com/test_log_file.log'',
+            ''report_file'': ''https://example.com/report_file.html'', ''hash_code'':
+            ''abcdef1234567890''}'
         parameters:
-        - description: A dictionary containing test logs, reports, and environment
-            configurations
-          name: input_artifacts
-          type: Dictionary[str, str]
-        - description: The hash code for the input artifacts
-          name: input_artifacts_hash
+        - description: Comprehensive summary of test outcomes from generate_detailed_report
+            node
+          name: test_summary
           type: str
+        - description: List of untested requirements from validate_test_coverage node
+          name: untested_requirements
+          type: List[str]
+        - description: List of code gaps detected during test execution from validate_test_coverage
+            node
+          name: code_gaps_detected
+          type: List[str]
+        - description: Risk assessment for untested requirements and code gaps from
+            validate_test_coverage node
+          name: risk_assessment
+          type: str
+        - description: Percentage of test coverage from validate_test_coverage node
+          name: test_coverage_percentage
+          type: float
+        - description: Pass rates by test category from generate_detailed_report node
+          name: pass_rates
+          type: List[float]
+        - description: Failure heatmaps for inter-test relationships from generate_detailed_report
+            node
+          name: failure_heatmaps
+          type: str
+        - description: Dependency graphs showing inter-test relationships from generate_detailed_report
+            node
+          name: dependency_graphs
+          type: str
+        - description: Overall test coverage from generate_detailed_report node
+          name: overall_coverage
+          type: float
         raises:
-        - description: If the input_artifacts hash code does not match the expected
-            hash code
+        - description: If any of the input parameters are missing or invalid
           type: ValueError
+        - description: If an error occurs during the archiving process
+          type: Exception
         returns:
-          description: A dictionary containing the archived test log file, the archived
-            report file, and the SHA hash code for the archived files
-          type: Dictionary[str, str]
-        summary: Packages test logs, reports, and environment configurations into
-          a timestamped archive.
+          description: A dictionary containing the archived test log file link, archived
+            report file link, and SHA hash code for the archived files
+          type: dict
+        summary: Archives test artifacts, including logs and reports, and stores them
+          in a version-controlled repository with SHA hash tracking.
     prompt: Package all test logs, reports, and environment configurations into a
       timestamped archive. Store in version-controlled repository with SHA hash tracking.
   execute_e2e_tests:
@@ -131,34 +157,35 @@ nodes:
       key: performance_metrics
       type: str
     prd:
-      conceptual_info: This node executes end-to-end tests to simulate full workflow
-        scenarios, record business transaction success rates, exceptions, and performance
-        metrics.
+      conceptual_info: This node is responsible for executing end-to-end scenario
+        tests, which simulate real-world usage of the system.
       docstring:
         examples:
         - lines:
-          - 'initialize_test_environment = {''configured_test_databases'': [''db1'',
-            ''db2''], ''cleared_cache'': True, ''established_sandbox_environments'':
-            [''env1'', ''env2''], ''verified_dependencies'': True, ''test_environment_ready'':
+          - 'test_environment = {''configured_test_databases'': [''db1'', ''db2''],
+            ''cleared_cache'': True, ''established_sandbox_environments'': [''env1'',
+            ''env2''], ''verified_dependencies'': True, ''test_environment_ready'':
             True}'
-          output: '{''e2e_test_success_rate'': 99.9, ''business_transaction_error_rates'':
-            [0.1, 0.2], ''exception_logs'': ''No exceptions encountered'', ''performance_metrics'':
-            ''Test execution time: 10 seconds''}'
+          - results = execute_e2e_tests(test_environment)
+          output: '{''e2e_test_success_rate'': 90.0, ''business_transaction_error_rates'':
+            [0.1, 0.2], ''exception_logs'': ''exception_log_1'', ''performance_metrics'':
+            ''performance_metric_1''}'
         parameters:
-        - description: Output of the initialize_test_environment node, containing
-            configured test databases, cleared cache, established sandbox environments,
-            and verified dependencies
-          name: initialize_test_environment
+        - description: Test environment configuration, including configured test databases,
+            cleared cache, established sandbox environments, verified dependencies,
+            and test environment readiness.
+          name: test_environment
           type: dict
         raises:
-        - description: Raised when the end-to-end tests fail
-          type: TestFailedException
+        - description: If the test environment is not properly configured or if an
+            error occurs during test execution.
+          type: ValueError
         returns:
           description: A dictionary containing the end-to-end test success rate, business
-            transaction error rates, exception logs, and performance metrics
+            transaction error rates, exception logs, and performance metrics.
           type: dict
-        summary: Run end-to-end tests to simulate full workflow scenarios, record
-          business transaction success rates, exceptions, and performance metrics.
+        summary: Execute end-to-end tests and record success rates, exceptions, and
+          performance metrics.
     prompt: Simulate full workflow scenarios through the entire system pipeline. Record
       business transaction success rates, exceptions, and performance metrics.
   execute_integration_tests:
@@ -185,32 +212,29 @@ nodes:
       key: failed_test_cases
       type: str
     prd:
-      conceptual_info: The execute_integration_tests node runs component integration
-        tests to verify the interaction between system components.
+      conceptual_info: This node executes integration tests between core system components
+        and documents inter-module failures.
       docstring:
         examples:
         - lines:
-          - integration_test_results = execute_integration_tests(dependencies=['test_env_ready'])
-          - print(integration_test_results)
-          output: 'Integration test results: [list of results]'
-        - lines:
-          - failure_logs = execute_integration_tests(dependencies=['test_env_ready'])
-          - print(failure_logs)
-          output: 'Inter-modules failure logs: [list of logs]'
+          - test_results = execute_integration_tests(initialize_test_environment())
+          - print(test_results['integration_test_results'])
+          output: '{''test1'': ''pass'', ''test2'': ''fail''}'
         parameters:
-        - description: List of dependencies, specifically the output from the initialize_test_environment
-            node.
-          name: dependencies
-          type: list[object]
+        - description: Test environment setup, including configured test databases,
+            cleared cache, established sandbox environments, and verified dependencies.
+          name: test_environment
+          type: dict
         raises:
-        - description: If the integration tests encounter any errors during execution.
-          type: Error
+        - description: If the test environment is not properly set up or if the integration
+            tests fail.
+          type: Exception
         returns:
-          description: The output of the integration tests, including integration_test_results,
-            failure_logs, interface_parameters, pass_rate, and failed_test_cases.
-          type: object
-        summary: Run component integration tests between core system components, documenting
-          inter-module failures with captured logs and interface parameters.
+          description: A dictionary containing the results of the integration tests,
+            captured logs of inter-module failures, interface parameters, pass rate,
+            and failed test cases.
+          type: dict
+        summary: Execute integration tests and document failures.
     prompt: Execute integration tests between core system components. Document inter-module
       failures with captured logs and interface parameters.
   execute_unit_tests:
@@ -237,42 +261,36 @@ nodes:
       key: fail_count
       type: int
     prd:
-      conceptual_info: This node runs unit tests in isolation, collecting pass/fail
-        results and any corresponding stack traces.
+      conceptual_info: This node executes unit tests in isolation and reports the
+        results, including pass/fail metrics and failure stack traces.
       docstring:
         examples:
         - lines:
-          - 'initialize_test_environment = {''configured_test_databases'': [''db1'',
-            ''db2''], ''cleared_cache'': True, ''established_sandbox_environments'':
-            [''env1'', ''env2''], ''verified_dependencies'': True, ''test_environment_ready'':
-            True}'
-          - test_results, failure_stack_traces, test_count, pass_count, fail_count
-            = execute_unit_tests(initialize_test_environment)
-          - print(test_results)
-          output: '[''pass'', ''fail'', ''pass'', ''fail'']'
-        - lines:
-          - 'initialize_test_environment = {''configured_test_databases'': [''db3'',
-            ''db4''], ''cleared_cache'': False, ''established_sandbox_environments'':
-            [''env3'', ''env4''], ''verified_dependencies'': False, ''test_environment_ready'':
-            False}'
-          - test_results, failure_stack_traces, test_count, pass_count, fail_count
-            = execute_unit_tests(initialize_test_environment)
-          - print(test_results)
-          output: '[''fail'']'
+          - 'test_results = execute_unit_tests({''test_databases'': [''db1'', ''db2''],
+            ''cleared_cache'': True, ''established_sandbox_environments'': [''env1'',
+            ''env2'']})'
+          - 'print(test_results[''test_results''])  # Output: [''pass'', ''fail'',
+            ''pass'']'
+          - 'print(test_results[''failure_stack_traces''])  # Output: [''Error: ...'']'
+          - 'print(test_results[''test_count''])  # Output: 3'
+          - 'print(test_results[''pass_count''])  # Output: 2'
+          - 'print(test_results[''fail_count''])  # Output: 1'
+          output: '{''test_results'': [''pass'', ''fail'', ''pass''], ''failure_stack_traces'':
+            [''Error: ...''], ''test_count'': 3, ''pass_count'': 2, ''fail_count'':
+            1}'
         parameters:
-        - description: Test environment setup information, including configured test
-            databases, cleared cache, established sandbox environments, verified dependencies,
-            and test environment readiness.
-          name: initialize_test_environment
+        - description: Test environment configuration, including test databases, cache,
+            and sandbox environments
+          name: test_environment
           type: dict
         raises:
-        - description: Any exception raised during test execution
-          type: Exception
+        - description: If the test environment is not properly configured
+          type: ValueError
         returns:
-          description: Test results, including test results, failure stack traces,
-            test count, pass count, and fail count.
+          description: Dictionary containing test results, failure stack traces, and
+            test metrics
           type: dict
-        summary: Run unit tests in isolation, reporting pass/fail results by module.
+        summary: Execute unit tests and report results
     prompt: Execute all unit tests in isolation using the configured test framework.
       Report pass/fail results by module with failure stack traces if any.
   generate_detailed_report:
@@ -299,39 +317,42 @@ nodes:
       key: overall_coverage
       type: float
     prd:
-      conceptual_info: This node aggregates the results from test executions and produces
-        a comprehensive report.
+      conceptual_info: This node generates a comprehensive report of test outcomes,
+        including pass rates, failure heatmaps, and dependency graphs.
       docstring:
         examples:
         - lines:
-          - "generate_detailed_report(aggregate_test_results=[{'test_results': ['test1',\
-            \ 'test2'],\n                     'test_failures': ['test1: failure message'],\n\
-            \                     'pass_rate': 0.8,\n                     'failure_overlaps':\
-            \ ['test1: overlap message']}\n                ])"
-          output: "{'test_summary': 'Summary of test outcomes.',\n 'pass_rates': [0.8],\n\
-            \ 'failure_heatmaps': 'Heatmap of failure relationships.',\n 'dependency_graphs':\
-            \ 'Graph of test dependencies.',\n 'overall_coverage': 0.8}"
-        - lines:
-          - "generate_detailed_report(aggregate_test_results=[{'test_results': ['test1',\
-            \ 'test2', 'test3'],\n                     'test_failures': ['test1: failure\
-            \ message', 'test3: failure message'],\n                     'pass_rate':\
-            \ 0.7,\n                     'failure_overlaps': ['test1: overlap message',\
-            \ 'test3: overlap message']}\n                ])"
-          output: "{'test_summary': 'Summary of test outcomes.',\n 'pass_rates': [0.7],\n\
-            \ 'failure_heatmaps': 'Heatmap of failure relationships.',\n 'dependency_graphs':\
-            \ 'Graph of test dependencies.',\n 'overall_coverage': 0.7}"
+          - test_results = ['pass', 'fail', 'pass']
+          - test_failures = ['error1', 'error2']
+          - pass_rate = 0.8
+          - failure_overlaps = ['overlap1', 'overlap2']
+          - report = generate_detailed_report(test_results, test_failures, pass_rate,
+            failure_overlaps)
+          output: '{''test_summary'': ''2/3 tests passed'', ''pass_rates'': [0.8],
+            ''failure_heatmaps'': ''heatmap'', ''dependency_graphs'': ''graph'', ''overall_coverage'':
+            0.8}'
         parameters:
-        - description: Output from `aggregate_test_results` node
-          name: aggregate_test_results
-          type: LIST_DICT
+        - description: List of test results
+          name: test_results
+          type: List[str]
+        - description: List of test failures with error messages
+          name: test_failures
+          type: List[str]
+        - description: Overall pass rate of all tests
+          name: pass_rate
+          type: float
+        - description: List of overlapping test failures
+          name: failure_overlaps
+          type: List[str]
         raises:
-        - description: If inputs are invalid
+        - description: If the input test results are invalid or incomplete.
           type: ValueError
         returns:
-          description: A dictionary containing test summary, pass rates, failure heatmaps,
-            dependency graphs, and overall coverage
+          description: A dictionary containing the test summary, pass rates, failure
+            heatmaps, dependency graphs, and overall coverage.
           type: dict
-        summary: This node aggregates test results to create a comprehensive report.
+        summary: Generates a detailed report of test outcomes based on the aggregated
+          test results.
     prompt: Format test results into comprehensive HTML report with failure heatmaps,
       pass rates by category, and dependency graphs showing inter-test relationships.
   initialize_test_environment:
@@ -358,29 +379,82 @@ nodes:
       key: test_environment_ready
       type: bool
     prd:
-      conceptual_info: The test environment initialization node prepares the test
-        environment by configuring test databases, clearing cache, establishing sandbox
-        environments, and verifying dependencies.
+      conceptual_info: Initializes the isolated, reproducible environment required
+        for all downstream test executions. It provisions databases, cleans caches,
+        creates sandbox instances, and validates dependency health before any tests
+        run.
       docstring:
         examples:
         - lines:
-          - configured_test_databases = ['test_db1', 'test_db2']
-          - cleared_cache = True
-          - established_sandbox_environments = ['env1', 'env2']
-          - verified_dependencies = True
-          - test_environment_ready = True
-          output: '{''configured_test_databases'': [''test_db1'', ''test_db2''], ''cleared_cache'':
-            True, ''established_sandbox_environments'': [''env1'', ''env2''], ''verified_dependencies'':
-            True, ''test_environment_ready'': True}'
-        parameters: []
-        raises:
-        - description: Raised when test environment setup fails
-          type: Exception
-        returns:
-          description: A dictionary containing test environment configuration details
-            and verification results
+          - 'env = initialize_test_environment(
+
+            '
+          - '    db_config={''test_db'': {''host'': ''localhost'', ''port'': 5432}},
+
+            '
+          - '    cache_service=''redis://localhost:6379'',
+
+            '
+          - '    sandbox_definitions=[''docker-compose-test.yml''],
+
+            '
+          - '    dependency_checks={''pytest'': ''6.0'', ''docker'': ''20.10''}
+
+            '
+          - )
+          output: "{\n  'configured_test_databases': ['test_db'],\n  'cleared_cache':\
+            \ True,\n  'established_sandbox_environments': ['docker-compose-test.yml'],\n\
+            \  'verified_dependencies': True,\n  'test_environment_ready': True\n}"
+        - lines:
+          - 'env = initialize_test_environment(
+
+            '
+          - '    db_config={},
+
+            '
+          - '    cache_service=''redis://localhost:6379'',
+
+            '
+          - '    sandbox_definitions=[],
+
+            '
+          - '    dependency_checks={}
+
+            '
+          - )
+          output: "{\n  'configured_test_databases': [],\n  'cleared_cache': True,\n\
+            \  'established_sandbox_environments': [],\n  'verified_dependencies':\
+            \ True,\n  'test_environment_ready': True\n}"
+        parameters:
+        - description: Mapping of database names to connection parameters used to
+            create test databases.
+          name: db_config
           type: dict
-        summary: Prepare test environment for execution
+        - description: Identifier of the cache service (e.g., Redis, Memcached) that
+            should be cleared.
+          name: cache_service
+          type: str
+        - description: List of sandbox environment descriptors (e.g., Docker compose
+            files, Vagrant boxes) to be instantiated.
+          name: sandbox_definitions
+          type: list
+        - description: Mapping of service names to minimum required versions for validation.
+          name: dependency_checks
+          type: dict
+        raises:
+        - description: Raised if any database fails to initialize or required services
+            are unreachable.
+          type: RuntimeError
+        - description: Raised when provided configuration dictionaries are missing
+            required keys.
+          type: ValueError
+        returns:
+          description: Dictionary containing booleans and identifiers for each step
+            of the environment setup. Keys correspond to the output fields defined
+            in the node’s output structure.
+          type: dict
+        summary: Sets up and validates the test environment required for unit, integration,
+          and end‑to‑end test execution.
     prompt: 'Set up test environment requirements: configure test databases, clear
       cache, establish sandbox environments for all required systems. Confirm all
       dependencies are active and version requirements are met.'
@@ -406,28 +480,46 @@ nodes:
       key: validation_results
       type: str
     prd:
-      conceptual_info: This node reviews the combined test report and coverage analysis
-        to determine if the test results meet the quality criteria. It generates a
-        formal acceptance recommendation based on defined quality thresholds.
+      conceptual_info: This node confirms whether test results meet predefined quality
+        criteria by reviewing the combined test report and coverage analysis.
       docstring:
         examples:
         - lines:
-          - produce_final_validation(generate_detailed_report='Success', validate_test_coverage=0.95)
-          output: '{''recommendation'': ''Approved'', ''pass_rate'': 0.95, ''threshold_exceeded'':
-            False, ''validation_results'': ''Validation complete''}'
-        - lines:
-          - produce_final_validation(generate_detailed_report='Failed', validate_test_coverage=0.85)
-          output: '{''recommendation'': ''Rejected'', ''pass_rate'': 0.85, ''threshold_exceeded'':
-            True, ''validation_results'': ''Validation incomplete''}'
-        parameters: []
-        raises: []
+          - detailed_report = {
+          - '  ''test_summary'': ''Test summary'','
+          - '  ''pass_rates'': [0.9, 0.8],'
+          - '  ''failure_heatmaps'': ''Failure heatmaps'','
+          - '  ''dependency_graphs'': ''Dependency graphs'','
+          - '  ''overall_coverage'': 0.85'
+          - '}'
+          - coverage_analysis = {
+          - '  ''untested_requirements'': [''req1'', ''req2''],'
+          - '  ''code_gaps_detected'': [''gap1'', ''gap2''],'
+          - '  ''risk_assessment'': ''Risk assessment'','
+          - '  ''test_coverage_percentage'': 0.8'
+          - '}'
+          - produce_final_validation(detailed_report, coverage_analysis)
+          output: '{recommendation: Acceptance recommended, pass_rate: 0.85, threshold_exceeded:
+            true, validation_results: Detailed validation results.}'
+        parameters:
+        - description: Detailed test report containing test summary, pass rates, failure
+            heatmaps, dependency graphs, and overall coverage.
+          name: detailed_report
+          type: dict
+        - description: Coverage analysis containing untested requirements, code gaps,
+            risk assessment, and test coverage percentage.
+          name: coverage_analysis
+          type: dict
+        raises:
+        - description: If the quality threshold is not met.
+          type: ValueError
         returns:
-          description: The recommendations, pass rate, threshold exceeded status,
-            and validation results.
-          type: '{recommendation: str, pass_rate: float, threshold_exceeded: bool,
-            validation_results: str}'
-        summary: Reviews combined test report and coverage analysis to generate a
-          formal acceptance recommendation.
+          description: '{recommendation: Formal acceptance recommendation., pass_rate:
+            Combined test pass rate., threshold_exceeded: Whether the quality threshold
+            has been exceeded., validation_results: Detailed validation results.}'
+          type: dict
+        summary: Generate a formal acceptance recommendation based on the quality
+          thresholds and test results.
     prompt: Review combined test report and coverage analysis. Generate formal acceptance
       recommendation based on defined quality thresholds (e.g., 95% unit test pass
       rate).
@@ -451,48 +543,127 @@ nodes:
     - description: List of critical defects identified
       key: critical_defects_identified
       type: List[str]
+    prd:
+      conceptual_info: This node inspects the final validation results of the test
+        execution pipeline and, if any quality thresholds are breached or critical
+        defects are detected, it initiates alerting mechanisms across predefined communication
+        channels and triggers incident management processes.
+      docstring:
+        examples:
+        - lines:
+          - result = trigger_alerts_based_on_results(
+          - '    recommendation=''Accept'','
+          - '    pass_rate=0.97,'
+          - '    threshold_exceeded=False,'
+          - '    validation_results=''All checks passed.'''
+          - )
+          output: '{''alert_channels'': [], ''threshold_exceeded_count'': 0, ''incident_management_triggered'':
+            false, ''critical_defects_identified'': []}'
+        - lines:
+          - result = trigger_alerts_based_on_results(
+          - '    recommendation=''Reject'','
+          - '    pass_rate=0.88,'
+          - '    threshold_exceeded=True,'
+          - '    validation_results=''Critical defect: NullPointer in module X.'''
+          - )
+          output: '{''alert_channels'': [''email'', ''PagerDuty''], ''threshold_exceeded_count'':
+            1, ''incident_management_triggered'': true, ''critical_defects_identified'':
+            [''NullPointer in module X.'']}'
+        parameters:
+        - description: Formal acceptance recommendation generated by produce_final_validation.
+          name: recommendation
+          type: str
+        - description: Combined test pass rate reported by produce_final_validation.
+          name: pass_rate
+          type: float
+        - description: Flag indicating whether the quality threshold was exceeded.
+          name: threshold_exceeded
+          type: bool
+        - description: Detailed validation results of the test execution.
+          name: validation_results
+          type: str
+        raises:
+        - description: If any required input is missing or of incorrect type.
+          type: ValueError
+        - description: If alert dispatch fails for all channels.
+          type: RuntimeError
+        returns:
+          description: Dictionary containing alert channels, threshold count, incident
+            trigger flag, and critical defect list.
+          type: dict
+        summary: Send alerts and trigger incident management based on final test validation
+          results.
     prompt: Send alerts via defined channels (email/SMS/PagerDuty) for test failures
       exceeding SLA thresholds. Trigger incident management workflows if critical
       defects are detected.
   validate_test_coverage:
     agent: false
-    description: Assess completeness of test execution
+    description: Assess completeness of test execution by comparing actual test results
+      with a requirements baseline. The node identifies any requirements that have
+      not been exercised, notes any uncovered code paths, evaluates the associated
+      risk, and calculates an overall coverage percentage.
     name: validate_test_coverage
     nodes_depended_on:
     - aggregate_test_results
     nodes_dependent_on: []
     output_structure:
-    - description: List of untested requirements
+    - description: List of requirements that were not covered by any test case.
       key: untested_requirements
       type: List[str]
-    - description: List of code gaps detected during test execution
+    - description: List of code segments or functions that were not exercised during
+        testing.
       key: code_gaps_detected
       type: List[str]
-    - description: Risk assessment for untested requirements and code gaps
+    - description: Qualitative risk assessment summarizing the impact of uncovered
+        requirements and code gaps.
       key: risk_assessment
       type: str
-    - description: Percentage of test coverage
+    - description: Calculated percentage of the requirements baseline that was covered
+        by tests.
       key: test_coverage_percentage
       type: float
     prd:
-      conceptual_info: This node assesses the completeness of test execution by comparing
-        executed test cases against requirements baseline, identifying and documenting
-        untested requirements and code gaps with risk assessment.
+      conceptual_info: This node translates raw test execution data into a coverage
+        report, highlighting gaps between implemented functionality and the requirements
+        baseline.
       docstring:
         examples:
         - lines:
-          - 'aggregate_test_results = {''test_results'': [{''name'': ''test1'', ''result'':
-            ''pass''}, {''name'': ''test2'', ''result'': ''fail''}], ''pass_rate'':
-            0.8}'
-          - validate_test_coverage(aggregate_test_results)
-          output: '{untested_requirements=[''test3''], code_gaps_detected=[''function_x''],
-            risk_assessment=''high'', test_coverage_percentage=0.8}'
-        parameters: []
-        raises: []
-        returns:
-          description: Dict containing untested_requirements, code_gaps_detected,
-            risk_assessment, and test_coverage_percentage
+          - aggregate_results = {
+          - '    ''test_results'': [''test_login_pass'', ''test_logout_fail''],'
+          - '    ''test_failures'': [''test_logout_fail: AssertionError''],'
+          - '    ''pass_rate'': 0.5,'
+          - '    ''failure_overlaps'': []'
+          - '}'
+          - requirements_baseline = ['REQ-001', 'REQ-002', 'REQ-003']
+          - coverage = validate_test_coverage(aggregate_results, requirements_baseline)
+          output: '{''untested_requirements'': [''REQ-002'', ''REQ-003''], ''code_gaps_detected'':
+            [''module_auth.logout''], ''risk_assessment'': ''High risk due to critical
+            authentication failures'', ''test_coverage_percentage'': 33.33}'
+        - lines:
+          - coverage = validate_test_coverage(aggregate_results, ['REQ-001'])
+          output: '{''untested_requirements'': [], ''code_gaps_detected'': [], ''risk_assessment'':
+            ''Low risk'', ''test_coverage_percentage'': 100.0}'
+        parameters:
+        - description: 'Dictionary containing aggregated test metrics from the `aggregate_test_results`
+            node. Expected keys: `test_results`, `test_failures`, `pass_rate`, `failure_overlaps`.'
+          name: aggregate_results
           type: dict
-        summary: Validate test coverage.
+        - description: A list of all requirement identifiers that should be exercised
+            by tests.
+          name: requirements_baseline
+          type: List[str]
+        raises:
+        - description: Raised if `aggregate_results` is missing required keys or if
+            `requirements_baseline` is empty.
+          type: ValueError
+        - description: Raised if input types do not match the expected signatures.
+          type: TypeError
+        returns:
+          description: A dictionary with keys `untested_requirements`, `code_gaps_detected`,
+            `risk_assessment`, and `test_coverage_percentage`.
+          type: dict
+        summary: Determine test coverage completeness and identify untested requirements
+          or code gaps.
     prompt: Compare executed test cases against requirements baseline. Identify and
       document untested requirements or code gaps with risk assessment.
