@@ -1,93 +1,127 @@
 dag_type: plain_text
-description: Identify possible song interpolations by extracting audio features, searching
-  a music database with those features, optionally checking lyrical similarity, merging
-  results, verifying candidates, and reporting the final interpolations.
-name: identify_song_interpolations_refined
+description: An API workflow that analyzes a submitted song's audio features to identify
+  interpolations and returns the source songs.
+name: musical_interpolation_finder
 nodes:
-  combine_candidate_lists:
+  extract_reference_audio_hash:
     agent: false
-    description: Merge audio and lyric candidate lists, weighting audio more heavily.
-    name: combine_candidate_lists
-    nodes_depended_on:
-    - rank_audio_candidates
-    - search_lyric_database
-    nodes_dependent_on: []
-    prompt: Cross‑reference the two candidate lists, apply a weighting (audio 60 %,
-      lyrics 40 %), and output the top 5 combined candidates with a combined confidence
-      score.
-  extract_audio_features:
-    agent: false
-    description: Extract core audio characteristics such as tempo, key, and melodic
-      contour from the validated file.
-    name: extract_audio_features
-    nodes_depended_on:
-    - validate_audio_input
-    nodes_dependent_on: []
-    prompt: Analyze the audio file and output a JSON containing tempo (BPM), key,
-      time signature, and a vector representing melodic and rhythmic patterns.
-  extract_lyrics:
-    agent: false
-    description: Retrieve lyrical text from the audio file or its metadata.
-    name: extract_lyrics
-    nodes_depended_on:
-    - validate_audio_input
-    nodes_dependent_on: []
-    prompt: If lyrics are embedded, extract them; otherwise run speech‑to‑text on
-      the audio to produce plain‑text lyrics.
-  generate_interpolation_report:
-    agent: false
-    description: Produce a final JSON report of confirmed interpolations.
-    name: generate_interpolation_report
-    nodes_depended_on:
-    - verify_candidate_interpolations
-    nodes_dependent_on: []
-    prompt: Format the verified candidates as JSON objects containing song title,
-      artist, timestamp range, match confidence (0‑1), and interpolation type. Include
-      up to 5 entries.
-  query_audio_feature_database:
-    agent: false
-    description: Search a music feature database for songs with similar audio characteristics.
-    name: query_audio_feature_database
-    nodes_depended_on:
-    - extract_audio_features
-    nodes_dependent_on: []
-    prompt: Using the extracted audio feature JSON, compute similarity (e.g., cosine
-      similarity) against a song database and return a list of the top 10 candidate
-      songs with similarity scores.
-  rank_audio_candidates:
-    agent: false
-    description: Select the strongest audio‑based candidates.
-    name: rank_audio_candidates
-    nodes_depended_on:
-    - query_audio_feature_database
-    nodes_dependent_on: []
-    prompt: From the candidate list, keep the five highest‑scoring entries and output
-      them as a JSON array.
-  search_lyric_database:
-    agent: false
-    description: Find songs with overlapping lyrical phrases.
-    name: search_lyric_database
-    nodes_depended_on:
-    - extract_lyrics
-    nodes_dependent_on: []
-    prompt: Compare the extracted lyrics against a lyric database using n‑gram matching
-      and return up to 10 songs with phrase‑level similarity scores.
-  validate_audio_input:
-    agent: false
-    description: Confirm the provided audio file is playable, correctly formatted,
-      and not corrupted.
-    name: validate_audio_input
+    description: Generate a spectrogram fingerprint or audio hash of the input song
+      to establish a unique audio signature for matching.
+    name: extract_reference_audio_hash
     nodes_depended_on: []
     nodes_dependent_on: []
-    prompt: Validate that the supplied audio file is in a supported format (e.g.,
-      MP3, WAV) and is not corrupted. Return a simple confirmation.
-  verify_candidate_interpolations:
+    prompt: Analyze the provided audio file and generate a unique spectrogram fingerprint
+      or acoustic hash that represents the unique sonic characteristics of the track.
+      Output the hash data.
+  fingerprint_chord_sequence:
     agent: false
-    description: Confirm that each candidate truly contains an interpolation segment.
-    name: verify_candidate_interpolations
+    description: Create a searchable signature of the chord progression to compare
+      against known databases.
+    name: fingerprint_chord_sequence
     nodes_depended_on:
-    - combine_candidate_lists
+    - isolate_harmonic_chord_progression
     nodes_dependent_on: []
-    prompt: For each candidate, align waveforms and timestamps, check for matching
-      melodic fragments and, if available, matching lyric snippets. Return only those
-      candidates that pass verification with a confidence rating.
+    prompt: Transform the extracted chord progression into a normalized string or
+      vector signature suitable for database similarity matching.
+  format_interpolation_response:
+    agent: false
+    description: Structure the final list of verified interpolation sources into the
+      API JSON response.
+    name: format_interpolation_response
+    nodes_depended_on:
+    - verify_temporal_feasibility
+    nodes_dependent_on: []
+    prompt: Format the remaining list of verified songs into the final JSON response
+      structure, including the interpolated segment type (Melody or Harmony).
+  isolate_harmonic_chord_progression:
+    agent: false
+    description: Extract the underlying harmonic structure and chord progression of
+      the song.
+    name: isolate_harmonic_chord_progression
+    nodes_depended_on: []
+    nodes_dependent_on: []
+    prompt: Process the provided audio signal to extract and notate the underlying
+      chord progression and harmonic structure, excluding melody and percussion.
+  isolate_melodic_riff_content:
+    agent: false
+    description: Separate the melodic instrumental riffs and leads from the rhythmic
+      and percussive sections using audio source separation.
+    name: isolate_melodic_riff_content
+    nodes_depended_on: []
+    nodes_dependent_on: []
+    prompt: Process the provided audio signal to isolate and output only the melodic
+      lead lines and instrumental riffs, removing drums, bass, and ambient noise.
+  merge_candidate_tracks:
+    agent: false
+    description: Combine the lists of candidates from melodic and harmonic searches
+      and remove duplicates.
+    name: merge_candidate_tracks
+    nodes_depended_on:
+    - search_database_melodic_matches
+    - search_database_harmonic_matches
+    nodes_dependent_on: []
+    prompt: Combine the two lists of track IDs into a single, unique list of candidate
+      songs. Remove any duplicate entries.
+  quantize_melodic_contours:
+    agent: false
+    description: Convert the isolated melodic audio into a structured sequence of
+      musical intervals andpitch values.
+    name: quantize_melodic_contours
+    nodes_depended_on:
+    - isolate_melodic_riff_content
+    nodes_dependent_on: []
+    prompt: Convert the isolated melodic audio into a mathematical sequence representing
+      pitch intervals and duration. Ignore rhythm, focus on the melodic contour sequence.
+  retrieve_candidate_metadata:
+    agent: false
+    description: Fetch titles, artists, and release years for all identified candidate
+      tracks.
+    name: retrieve_candidate_metadata
+    nodes_depended_on:
+    - merge_candidate_tracks
+    nodes_dependent_on: []
+    prompt: For each track ID in the provided list, retrieve the Song Title, Artist
+      Name, and Release Year from the database.
+  retrieve_release_date_origin:
+    agent: false
+    description: Determine the release date of the input song to establish a timeline
+      for interpolation.
+    name: retrieve_release_date_origin
+    nodes_depended_on: []
+    nodes_dependent_on: []
+    prompt: Identify the original release date of the input song provided by the user.
+      If metadata is attached to the file, use it. Otherwise, perform a lookup based
+      on the available song info.
+  search_database_harmonic_matches:
+    agent: false
+    description: Query the internal music database for tracks with similar chord progression
+      signatures.
+    name: search_database_harmonic_matches
+    nodes_depended_on:
+    - fingerprint_chord_sequence
+    nodes_dependent_on: []
+    prompt: Query the music database using the provided chord progression signature.
+      Return a list of track IDs where the harmonic structure matches closely.
+  search_database_melodic_matches:
+    agent: false
+    description: Query the internal music database for tracks with similar melodic
+      interval sequences.
+    name: search_database_melodic_matches
+    nodes_depended_on:
+    - quantize_melodic_contours
+    nodes_dependent_on: []
+    prompt: Query the music database using the provided melodic interval sequence.
+      Return a list of track IDs where the melodic contour shares a significant similarity
+      (Levenshtein distance or similar).
+  verify_temporal_feasibility:
+    agent: false
+    description: Filter the candidate list to include only songs released prior to
+      the input song.
+    name: verify_temporal_feasibility
+    nodes_depended_on:
+    - retrieve_candidate_metadata
+    - retrieve_release_date_origin
+    nodes_dependent_on: []
+    prompt: Compare the release dates of the candidate songs against the release date
+      of the input song. Remove any candidates from the list that were released after
+      the input song.
