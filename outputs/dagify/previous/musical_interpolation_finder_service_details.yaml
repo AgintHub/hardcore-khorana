@@ -10,15 +10,9 @@ nodes:
     nodes_depended_on: []
     nodes_dependent_on: []
     output_structure:
-    - description: Spectrogram fingerprint of the input song
-      key: spectrogram_fingerprint
-      type: str
-    - description: Audio hash of the input song
+    - description: The unique spectrogram fingerprint or acoustic hash representing
+        the input song's audio characteristics
       key: audio_hash
-      type: str
-    - description: Error message if audio hash or spectrogram fingerprint cannot be
-        generated
-      key: error_message
       type: str
     prompt: Analyze the provided audio file and generate a unique spectrogram fingerprint
       or acoustic hash that represents the unique sonic characteristics of the track.
@@ -32,9 +26,22 @@ nodes:
     - isolate_harmonic_chord_progression
     nodes_dependent_on: []
     output_structure:
-    - description: Normalized string or vector signature of the chord progression
-      key: chord_progression_signature
+    - description: Normalized string representation of the chord progression using
+        standard musical notation (e.g., Cmaj7-Gmin-Amaj7)
+      key: chord_sequence_string
       type: str
+    - description: Quantized numerical vector representation of the chord progression
+        for computational similarity matching
+      key: chord_vector
+      type: List[float]
+    - description: List of individual chord labels extracted from the progression
+        (e.g., ['Cmaj7', 'Gmin', 'Fmaj7'])
+      key: chord_labels
+      type: List[str]
+    - description: Boolean flag indicating whether the fingerprinting process completed
+        successfully
+      key: is_fingerprint_valid
+      type: bool
     prompt: Transform the extracted chord progression into a normalized string or
       vector signature suitable for database similarity matching.
   format_interpolation_response:
@@ -46,12 +53,19 @@ nodes:
     - verify_temporal_feasibility
     nodes_dependent_on: []
     output_structure:
-    - description: List of interpolation sources (song titles)
-      key: interpolation_sources
+    - description: List of verified interpolation source song titles
+      key: interpolated_song_titles
       type: List[str]
-    - description: Type of interpolation segment (Melody or Harmony)
-      key: interpolated_segment_type
-      type: str
+    - description: List of artist names for the verified interpolation sources
+      key: artists
+      type: List[str]
+    - description: List of release years for the verified interpolation sources
+      key: release_years
+      type: List[int]
+    - description: List of interpolation detection type ('Melody' or 'Harmony') for
+        each source
+      key: interpolation_types
+      type: List[str]
     prompt: Format the remaining list of verified songs into the final JSON response
       structure, including the interpolated segment type (Melody or Harmony).
   isolate_harmonic_chord_progression:
@@ -62,15 +76,16 @@ nodes:
     nodes_depended_on: []
     nodes_dependent_on: []
     output_structure:
-    - description: Chord progression extracted from the song
+    - description: "List of chord names in the harmonic structure (e.g., ['Cmaj7',\
+        \ 'G7', 'Ami', 'F']\")\n        },\n        {\n          \"key\": \"harmonic_key"
       key: chord_progression
+      type: List[str]
+    - description: Identified time signature (e.g., '4/4')
+      key: time_signature
       type: str
-    - description: Harmonic structure extracted from the song
-      key: harmonic_structure
-      type: str
-    - description: Rhythm information extracted from the song
-      key: rhythm_info
-      type: str
+    - description: Indicates whether harmonic analysis was successful
+      key: is_valid
+      type: bool
     prompt: Process the provided audio signal to extract and notate the underlying
       chord progression and harmonic structure, excluding melody and percussion.
   isolate_melodic_riff_content:
@@ -81,13 +96,18 @@ nodes:
     nodes_depended_on: []
     nodes_dependent_on: []
     output_structure:
-    - description: List of audio samples representing the isolated melodic lead lines
-        and instrumental riffs
-      key: melodic_riff_content
-      type: List[float]
-    - description: String representation of the isolated rhythmic and percussive sections
-      key: rhythmic_content
+    - description: Path or URI to the file containing the isolated melodic audio track.
+      key: audio_file_path
       type: str
+    - description: Whether the isolation was performed successfully.
+      key: is_successful
+      type: bool
+    - description: Duration of the isolated melodic audio in seconds.
+      key: duration_seconds
+      type: float
+    - description: Sampling rate (in Hz) of the isolated melodic audio.
+      key: sample_rate
+      type: int
     prompt: Process the provided audio signal to isolate and output only the melodic
       lead lines and instrumental riffs, removing drums, bass, and ambient noise.
   merge_candidate_tracks:
@@ -100,12 +120,10 @@ nodes:
     - search_database_harmonic_matches
     nodes_dependent_on: []
     output_structure:
-    - description: Unique list of candidate track IDs
-      key: candidate_track_ids
-      type: List[str]
-    - description: Total number of unique track IDs
-      key: num_unique_tracks
-      type: int
+    - description: Unique list of track IDs from both melodic and harmonic candidate
+        lists with duplicates removed.
+      key: merged_candidate_ids
+      type: List[int]
     prompt: Combine the two lists of track IDs into a single, unique list of candidate
       songs. Remove any duplicate entries.
   quantize_melodic_contours:
@@ -117,15 +135,18 @@ nodes:
     - isolate_melodic_riff_content
     nodes_dependent_on: []
     output_structure:
-    - description: List of musical intervals in the melodic contour sequence
-      key: melodic_contour_intervals
-      type: List[float]
-    - description: List of pitch values in the melodic contour sequence
-      key: melodic_contour_pitch_values
+    - description: Ordered list of integer pitch intervals (in semitones) between
+        consecutive notes in the melodic contour.
+      key: interval_sequence
       type: List[int]
-    - description: List of duration values in the melodic contour sequence
-      key: melodic_contour_duration
-      type: List[float]
+    - description: Ordered list of absolute pitch values (MIDI note numbers) representing
+        each note in the melodic contour.
+      key: pitch_sequence
+      type: List[int]
+    - description: Indicates whether the quantization process succeeded and the output
+        data is usable.
+      key: is_valid
+      type: bool
     prompt: Convert the isolated melodic audio into a mathematical sequence representing
       pitch intervals and duration. Ignore rhythm, focus on the melodic contour sequence.
   retrieve_candidate_metadata:
@@ -137,14 +158,17 @@ nodes:
     - merge_candidate_tracks
     nodes_dependent_on: []
     output_structure:
-    - description: List of song titles
-      key: candidate_titles
+    - description: List of unique identifiers for the candidate tracks
+      key: track_ids
       type: List[str]
-    - description: List of artist names
-      key: candidate_artists
+    - description: List of song titles corresponding to each track ID
+      key: song_titles
       type: List[str]
-    - description: List of release years
-      key: candidate_release_years
+    - description: List of artist names corresponding to each track ID
+      key: artist_names
+      type: List[str]
+    - description: List of release years corresponding to each track ID
+      key: release_years
       type: List[int]
     prompt: For each track ID in the provided list, retrieve the Song Title, Artist
       Name, and Release Year from the database.
@@ -156,9 +180,13 @@ nodes:
     nodes_depended_on: []
     nodes_dependent_on: []
     output_structure:
-    - description: Release date of the input song in the format YYYY-MM-DD
+    - description: Original release date of the input song in ISO 8601 format (YYYY-MM-DD)
       key: release_date
       type: str
+    - description: Boolean indicating whether the date was extracted from file metadata
+        (True) or determined via external lookup (False)
+      key: is_from_metadata
+      type: bool
     prompt: Identify the original release date of the input song provided by the user.
       If metadata is attached to the file, use it. Otherwise, perform a lookup based
       on the available song info.
@@ -172,12 +200,14 @@ nodes:
     - fingerprint_chord_sequence
     nodes_dependent_on: []
     output_structure:
-    - description: List of track IDs that match the harmonic structure
+    - description: List of database track IDs that share harmonic similarity with
+        the input song
       key: track_ids
       type: List[str]
-    - description: Similarity score between the input track and matched tracks
-      key: match_similarity
-      type: float
+    - description: List of match confidence scores (0-1) for each corresponding track
+        ID
+      key: confidence_scores
+      type: List[float]
     prompt: Query the music database using the provided chord progression signature
       and audio hash. Return a list of track IDs where the harmonic structure matches
       closely.
@@ -191,8 +221,8 @@ nodes:
     - quantize_melodic_contours
     nodes_dependent_on: []
     output_structure:
-    - description: List of track IDs with similar melodic contour
-      key: track_ids
+    - description: List of track IDs that match the melodic contour of the input song.
+      key: matched_track_ids
       type: List[str]
     prompt: Query the music database using the provided melodic interval sequence
       and audio hash. Return a list of track IDs where the melodic contour shares
@@ -207,13 +237,15 @@ nodes:
     - retrieve_release_date_origin
     nodes_dependent_on: []
     output_structure:
-    - description: List of IDs of songs that meet the temporal feasibility criteria
-      key: verified_candidate_songs
+    - description: 'List of candidate metadata strings (format: ''id|title|artist|release_year'')
+        for candidates that have release years earlier than or equal to the input
+        song''s release year.'
+      key: filtered_candidate_metadata
       type: List[str]
-    - description: List of IDs of songs that do not meet the temporal feasibility
-        criteria
-      key: removed_songs
-      type: List[str]
+    - description: Number of candidate tracks that passed the temporal feasibility
+        filter.
+      key: valid_candidate_count
+      type: int
     prompt: Compare the release dates of the candidate songs against the release date
       of the input song. Remove any candidates from the list that were released after
       the input song.
