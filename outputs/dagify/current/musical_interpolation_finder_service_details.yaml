@@ -1,8 +1,7 @@
 dag_type: plain_text
-description: A FastAPI service workflow that processes an audio file to identify potential
-  song interpolations by analyzing melodic contour and harmonic progression, querying
-  a database for matches, and verifying temporal feasibility to return a structured
-  list of verified sources.
+description: Identifies and verifies songs that may have been interpolated by an input
+  track by analyzing audio fingerprints, chord sequences, and melodic contours against
+  a music database.
 name: musical_interpolation_finder_service
 nodes:
   extract_reference_audio_hash:
@@ -11,7 +10,9 @@ nodes:
       to establish a unique audio signature for matching.
     name: extract_reference_audio_hash
     nodes_depended_on: []
-    nodes_dependent_on: []
+    nodes_dependent_on:
+    - search_database_harmonic_matches
+    - search_database_melodic_matches
     prompt: Analyze the provided audio file and generate a unique spectrogram fingerprint
       or acoustic hash that represents the unique sonic characteristics of the track.
       Output the hash data.
@@ -107,22 +108,26 @@ nodes:
       signatures.
     name: search_database_harmonic_matches
     nodes_depended_on:
+    - extract_reference_audio_hash
     - fingerprint_chord_sequence
     nodes_dependent_on:
     - merge_candidate_tracks
-    prompt: Query the music database using the provided chord progression signature.
-      Return a list of track IDs where the harmonic structure matches closely.
+    prompt: Query the music database using the provided chord progression signature
+      and audio hash. Return a list of track IDs where the harmonic structure matches
+      closely.
   search_database_melodic_matches:
     agent: false
     description: Query the internal music database for tracks with similar melodic
       interval sequences.
     name: search_database_melodic_matches
     nodes_depended_on:
+    - extract_reference_audio_hash
     - quantize_melodic_contours
     nodes_dependent_on:
     - merge_candidate_tracks
-    prompt: Query the music database using the provided melodic interval sequence.
-      Return a list of track IDs where the melodic contour shares a significant similarity.
+    prompt: Query the music database using the provided melodic interval sequence
+      and audio hash. Return a list of track IDs where the melodic contour shares
+      a significant similarity.
   verify_temporal_feasibility:
     agent: false
     description: Filter the candidate list to include only songs released prior to

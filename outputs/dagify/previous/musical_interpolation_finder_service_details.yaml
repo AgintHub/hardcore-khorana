@@ -1,7 +1,9 @@
 dag_type: plain_text
-description: An API workflow that analyzes a submitted song's audio features to identify
-  interpolations and returns the source songs.
-name: musical_interpolation_finder
+description: A FastAPI service workflow that processes an audio file to identify potential
+  song interpolations by analyzing melodic contour and harmonic progression, querying
+  a database for matches, and verifying temporal feasibility to return a structured
+  list of verified sources.
+name: musical_interpolation_finder_service
 nodes:
   extract_reference_audio_hash:
     agent: false
@@ -20,7 +22,8 @@ nodes:
     name: fingerprint_chord_sequence
     nodes_depended_on:
     - isolate_harmonic_chord_progression
-    nodes_dependent_on: []
+    nodes_dependent_on:
+    - search_database_harmonic_matches
     prompt: Transform the extracted chord progression into a normalized string or
       vector signature suitable for database similarity matching.
   format_interpolation_response:
@@ -39,7 +42,8 @@ nodes:
       the song.
     name: isolate_harmonic_chord_progression
     nodes_depended_on: []
-    nodes_dependent_on: []
+    nodes_dependent_on:
+    - fingerprint_chord_sequence
     prompt: Process the provided audio signal to extract and notate the underlying
       chord progression and harmonic structure, excluding melody and percussion.
   isolate_melodic_riff_content:
@@ -48,7 +52,8 @@ nodes:
       and percussive sections using audio source separation.
     name: isolate_melodic_riff_content
     nodes_depended_on: []
-    nodes_dependent_on: []
+    nodes_dependent_on:
+    - quantize_melodic_contours
     prompt: Process the provided audio signal to isolate and output only the melodic
       lead lines and instrumental riffs, removing drums, bass, and ambient noise.
   merge_candidate_tracks:
@@ -59,17 +64,19 @@ nodes:
     nodes_depended_on:
     - search_database_melodic_matches
     - search_database_harmonic_matches
-    nodes_dependent_on: []
+    nodes_dependent_on:
+    - retrieve_candidate_metadata
     prompt: Combine the two lists of track IDs into a single, unique list of candidate
       songs. Remove any duplicate entries.
   quantize_melodic_contours:
     agent: false
     description: Convert the isolated melodic audio into a structured sequence of
-      musical intervals andpitch values.
+      musical intervals and pitch values.
     name: quantize_melodic_contours
     nodes_depended_on:
     - isolate_melodic_riff_content
-    nodes_dependent_on: []
+    nodes_dependent_on:
+    - search_database_melodic_matches
     prompt: Convert the isolated melodic audio into a mathematical sequence representing
       pitch intervals and duration. Ignore rhythm, focus on the melodic contour sequence.
   retrieve_candidate_metadata:
@@ -79,7 +86,8 @@ nodes:
     name: retrieve_candidate_metadata
     nodes_depended_on:
     - merge_candidate_tracks
-    nodes_dependent_on: []
+    nodes_dependent_on:
+    - verify_temporal_feasibility
     prompt: For each track ID in the provided list, retrieve the Song Title, Artist
       Name, and Release Year from the database.
   retrieve_release_date_origin:
@@ -88,7 +96,8 @@ nodes:
       for interpolation.
     name: retrieve_release_date_origin
     nodes_depended_on: []
-    nodes_dependent_on: []
+    nodes_dependent_on:
+    - verify_temporal_feasibility
     prompt: Identify the original release date of the input song provided by the user.
       If metadata is attached to the file, use it. Otherwise, perform a lookup based
       on the available song info.
@@ -99,7 +108,8 @@ nodes:
     name: search_database_harmonic_matches
     nodes_depended_on:
     - fingerprint_chord_sequence
-    nodes_dependent_on: []
+    nodes_dependent_on:
+    - merge_candidate_tracks
     prompt: Query the music database using the provided chord progression signature.
       Return a list of track IDs where the harmonic structure matches closely.
   search_database_melodic_matches:
@@ -109,10 +119,10 @@ nodes:
     name: search_database_melodic_matches
     nodes_depended_on:
     - quantize_melodic_contours
-    nodes_dependent_on: []
+    nodes_dependent_on:
+    - merge_candidate_tracks
     prompt: Query the music database using the provided melodic interval sequence.
-      Return a list of track IDs where the melodic contour shares a significant similarity
-      (Levenshtein distance or similar).
+      Return a list of track IDs where the melodic contour shares a significant similarity.
   verify_temporal_feasibility:
     agent: false
     description: Filter the candidate list to include only songs released prior to
@@ -121,7 +131,8 @@ nodes:
     nodes_depended_on:
     - retrieve_candidate_metadata
     - retrieve_release_date_origin
-    nodes_dependent_on: []
+    nodes_dependent_on:
+    - format_interpolation_response
     prompt: Compare the release dates of the candidate songs against the release date
       of the input song. Remove any candidates from the list that were released after
       the input song.
